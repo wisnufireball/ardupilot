@@ -29,7 +29,7 @@
 #include <DataFlash/DataFlash.h>
 
 // maximum number of mounts
-#define AP_MOUNT_MAX_INSTANCES          2
+#define AP_MOUNT_MAX_INSTANCES          1
 
 // declare backend classes
 class AP_Mount_Backend;
