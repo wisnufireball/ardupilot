@@ -31,7 +31,6 @@
 
 #include <AP_HAL/AP_HAL.h>
 #include <AP_Common/AP_Common.h>
-#include <AP_Menu/AP_Menu.h>
 #include <AP_Param/AP_Param.h>
 #include <StorageManager/StorageManager.h>
 #include <AP_GPS/AP_GPS.h>         // ArduPilot GPS library
@@ -64,6 +63,7 @@
 #include <AP_Declination/AP_Declination.h> // ArduPilot Mega Declination Helper Library
 #include <DataFlash/DataFlash.h>
 #include <AP_Scheduler/AP_Scheduler.h>       // main loop scheduler
+#include <AP_Scheduler/PerfInfo.h>                  // loop perf monitoring
 
 #include <AP_Navigation/AP_Navigation.h>
 #include <AP_L1_Control/AP_L1_Control.h>
@@ -94,6 +94,7 @@
 #include <AP_ADSB/AP_ADSB.h>
 #include <AP_Button/AP_Button.h>
 #include <AP_ICEngine/AP_ICEngine.h>
+#include <AP_Gripper/AP_Gripper.h>
 #include <AP_Landing/AP_Landing.h>
 
 #include "GCS_Mavlink.h"
@@ -121,7 +122,7 @@
 class AP_AdvancedFailsafe_Plane : public AP_AdvancedFailsafe
 {
 public:
-    AP_AdvancedFailsafe_Plane(AP_Mission &_mission, AP_Baro &_baro, const AP_GPS &_gps, const RCMapper &_rcmap);
+    AP_AdvancedFailsafe_Plane(AP_Mission &_mission, const AP_GPS &_gps, const RCMapper &_rcmap);
 
     // called to set all outputs to termination state
     void terminate_vehicle(void);
@@ -213,11 +214,11 @@ private:
 
 // Inertial Navigation EKF
 #if AP_AHRS_NAVEKF_AVAILABLE
-    NavEKF2 EKF2{&ahrs, barometer, rangefinder};
-    NavEKF3 EKF3{&ahrs, barometer, rangefinder};
-    AP_AHRS_NavEKF ahrs{ins, barometer, EKF2, EKF3};
+    NavEKF2 EKF2{&ahrs, rangefinder};
+    NavEKF3 EKF3{&ahrs, rangefinder};
+    AP_AHRS_NavEKF ahrs{ins, EKF2, EKF3};
 #else
-    AP_AHRS_DCM ahrs{ins, barometer};
+    AP_AHRS_DCM ahrs{ins};
 #endif
 
     AP_TECS TECS_controller{ahrs, aparm, landing, g2.soaring_controller};
@@ -625,13 +626,13 @@ private:
             FUNCTOR_BIND_MEMBER(&Plane::disarm_if_autoland_complete, void),
             FUNCTOR_BIND_MEMBER(&Plane::update_flight_stage, void)};
 
-    AP_ADSB adsb{ahrs};
+    AP_ADSB adsb;
 
     // avoidance of adsb enabled vehicles (normally manned vheicles)
     AP_Avoidance_Plane avoidance_adsb{ahrs, adsb};
 
     // Outback Challenge Failsafe Support
-    AP_AdvancedFailsafe_Plane afs {mission, barometer, gps, rcmap};
+    AP_AdvancedFailsafe_Plane afs {mission, gps, rcmap};
 
     /*
       meta data to support counting the number of circles in a loiter
@@ -734,32 +735,8 @@ private:
     // This is the time between calls to the DCM algorithm and is the Integration time for the gyros.
     float G_Dt = 0.02f;
 
-    struct {
-        // Performance monitoring
-        // Timer used to accrue data and trigger recording of the performanc monitoring log message
-        uint32_t start_ms;
-
-        // The maximum and minimum main loop execution time, in microseconds, recorded in the current performance monitoring interval
-        uint32_t G_Dt_max;
-        uint32_t G_Dt_min;
-
-        // System Timers
-        // Time in microseconds of start of main control loop
-        uint32_t fast_loopTimer_us;
-
-        // Number of milliseconds used in last main loop cycle
-        uint32_t delta_us_fast_loop;
-
-        // Counter of main loop executions.  Used for performance monitoring and failsafe processing
-        uint16_t mainLoop_count;
-
-        // number of long loops
-        uint16_t num_long;
-
-        // accumulated lost log messages
-        uint32_t last_log_dropped;
-    } perf;
-
+    // loop performance monitoring:
+    AP::PerfInfo perf_info;
     struct {
         uint32_t last_trim_check;
         uint32_t last_trim_save;
@@ -775,7 +752,7 @@ private:
 #endif
 
     // Arming/Disarming mangement class
-    AP_Arming_Plane arming{ahrs, barometer, compass, battery};
+    AP_Arming_Plane arming{ahrs, compass, battery};
 
     AP_Param param_loader {var_info};
 
@@ -815,6 +792,7 @@ private:
     void send_vfr_hud(mavlink_channel_t chan);
     void send_simstate(mavlink_channel_t chan);
     void send_wind(mavlink_channel_t chan);
+    void send_pid_info(const mavlink_channel_t chan, const DataFlash_Class::PID_Info *pid_info, const uint8_t axis, const float achieved);
     void send_pid_tuning(mavlink_channel_t chan);
     void send_rpm(mavlink_channel_t chan);
 
@@ -972,7 +950,6 @@ private:
     void check_short_failsafe();
     void startup_INS_ground(void);
     void update_notify();
-    void resetPerfData(void);
     bool should_log(uint32_t mask);
     int8_t throttle_percentage(void);
     void change_arm_state(void);
@@ -999,7 +976,6 @@ private:
     void airspeed_ratio_update(void);
     void update_mount(void);
     void update_trigger(void);    
-    void log_perf_info(void);
     void compass_save(void);
     void update_logging1(void);
     void update_logging2(void);

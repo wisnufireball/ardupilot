@@ -121,7 +121,7 @@ public:
     void Log_Write_RCIN(void);
     void Log_Write_RCOUT(void);
     void Log_Write_RSSI(AP_RSSI &rssi);
-    void Log_Write_Baro(AP_Baro &baro, uint64_t time_us=0);
+    void Log_Write_Baro(uint64_t time_us=0);
     void Log_Write_Power(void);
     void Log_Write_AHRS2(AP_AHRS &ahrs);
     void Log_Write_POS(AP_AHRS &ahrs);
@@ -141,7 +141,7 @@ public:
     void Log_Write_AttitudeView(AP_AHRS_View &ahrs, const Vector3f &targets);
     void Log_Write_Current();
     void Log_Write_Compass(const Compass &compass, uint64_t time_us=0);
-    void Log_Write_Mode(uint8_t mode, uint8_t reason = 0);
+    void Log_Write_Mode(uint8_t mode, uint8_t reason);
 
     void Log_Write_EntireMission(const AP_Mission &mission);
     void Log_Write_Mission_Cmd(const AP_Mission &mission,
@@ -295,7 +295,7 @@ private:
     void Log_Write_EKF3(AP_AHRS_NavEKF &ahrs);
 #endif
 
-    void Log_Write_Baro_instance(AP_Baro &baro, uint64_t time_us, uint8_t baro_instance, enum LogMessages type);
+    void Log_Write_Baro_instance(uint64_t time_us, uint8_t baro_instance, enum LogMessages type);
     void Log_Write_IMU_instance(const AP_InertialSensor &ins,
                                 uint64_t time_us,
                                 uint8_t imu_instance,
@@ -339,7 +339,7 @@ private:
     // possibly expensive calls to start log system:
     void Prep();
 
-    bool _writes_enabled;
+    bool _writes_enabled:1;
 
     /* support for retrieving logs via mavlink: */
     uint8_t  _log_listing:1; // sending log list

@@ -22,6 +22,8 @@
 #include "ch.h"
 #include "hal.h"
 
+#if HAL_USE_I2C == TRUE
+
 static const struct I2CInfo {
     struct I2CDriver *i2c;
     uint8_t dma_channel_rx;
@@ -49,6 +51,38 @@ void I2CBus::dma_init(void)
     dma_handle = new Shared_DMA(I2CD[busnum].dma_channel_tx, I2CD[busnum].dma_channel_rx, 
                                 FUNCTOR_BIND_MEMBER(&I2CBus::dma_allocate, void),
                                 FUNCTOR_BIND_MEMBER(&I2CBus::dma_deallocate, void));    
+}
+
+// Clear Bus to avoid bus lockup
+void I2CBus::clear_all()
+{
+#if defined(HAL_GPIO_PIN_I2C1_SCL) && defined(HAL_I2C1_SCL_AF)
+    clear_bus(HAL_GPIO_PIN_I2C1_SCL, HAL_I2C1_SCL_AF);
+#endif
+
+#if defined(HAL_GPIO_PIN_I2C2_SCL) && defined(HAL_I2C2_SCL_AF)
+    clear_bus(HAL_GPIO_PIN_I2C2_SCL, HAL_I2C2_SCL_AF);
+#endif
+
+#if defined(HAL_GPIO_PIN_I2C3_SCL) && defined(HAL_I2C3_SCL_AF)
+    clear_bus(HAL_GPIO_PIN_I2C3_SCL, HAL_I2C3_SCL_AF);
+#endif
+
+#if defined(HAL_GPIO_PIN_I2C4_SCL) && defined(HAL_I2C4_SCL_AF)
+    clear_bus(HAL_GPIO_PIN_I2C4_SCL, HAL_I2C4_SCL_AF);
+#endif
+}
+
+//This code blocks!
+void I2CBus::clear_bus(ioline_t scl_line, uint8_t scl_af)
+{
+    //send dummy clock
+    palSetLineMode(scl_line, PAL_MODE_OUTPUT_PUSHPULL);
+    for(int i = 0; i < 20; i++) {
+        palToggleLine(scl_line);
+        hal.scheduler->delay_microseconds(200);
+    }
+    palSetLineMode(scl_line, PAL_MODE_ALTERNATE(scl_af) | PAL_STM32_OSPEED_MID2 | PAL_STM32_OTYPE_OPENDRAIN);
 }
 
 // setup I2C buses
@@ -84,6 +118,7 @@ I2CDevice::I2CDevice(uint8_t busnum, uint8_t address, uint32_t bus_clock, bool u
              (unsigned)busnum, (unsigned)address);
     if (bus_clock < bus.i2ccfg.clock_speed) {
         bus.i2ccfg.clock_speed = bus_clock;
+        hal.console->printf("I2C%u clock %ukHz\n", busnum, unsigned(bus_clock/1000));
         if (bus_clock <= 100000) {
             bus.i2ccfg.duty_cycle = STD_DUTY_CYCLE;
         }
@@ -127,7 +162,7 @@ bool I2CDevice::transfer(const uint8_t *send, uint32_t send_len,
                          uint8_t *recv, uint32_t recv_len)
 {
     if (!bus.semaphore.check_owner()) {
-        hal.console->printf("ERR: I2C transfer by non-owner\n");
+        hal.console->printf("I2C: not owner of 0x%x\n", (unsigned)get_bus_id());
         return false;
     }
     
@@ -250,3 +285,5 @@ I2CDeviceManager::get_device(uint8_t bus, uint8_t address,
     auto dev = AP_HAL::OwnPtr<AP_HAL::I2CDevice>(new I2CDevice(bus, address, bus_clock, use_smbus, timeout_ms));
     return dev;
 }
+
+#endif // HAL_USE_I2C

@@ -169,15 +169,15 @@ private:
 
     // Inertial Navigation EKF
 #if AP_AHRS_NAVEKF_AVAILABLE
-    NavEKF2 EKF2{&ahrs, barometer, rangefinder};
-    NavEKF3 EKF3{&ahrs, barometer, rangefinder};
-    AP_AHRS_NavEKF ahrs{ins, barometer, EKF2, EKF3};
+    NavEKF2 EKF2{&ahrs, rangefinder};
+    NavEKF3 EKF3{&ahrs, rangefinder};
+    AP_AHRS_NavEKF ahrs{ins, EKF2, EKF3};
 #else
-    AP_AHRS_DCM ahrs{ins, barometer};
+    AP_AHRS_DCM ahrs{ins};
 #endif
 
     // Arming/Disarming management class
-    AP_Arming_Rover arming{ahrs, barometer, compass, battery, g2.fence};
+    AP_Arming_Rover arming{ahrs, compass, battery, g2.fence};
 
     AP_L1_Control L1_controller{ahrs, nullptr};
 
@@ -330,20 +330,6 @@ private:
     // This is the time between calls to the DCM algorithm and is the Integration time for the gyros.
     float G_Dt;
 
-    // Performance monitoring
-    // Timer used to accrue data and trigger recording of the performance monitoring log message
-    int32_t perf_mon_timer;
-    // The maximum main loop execution time, in microseconds, recorded in the current performance monitoring interval
-    uint32_t G_Dt_max;
-
-    // System Timers
-    // Time in microseconds of start of main control loop.
-    uint32_t fast_loopTimer_us;
-    // Number of milliseconds used in last main loop cycle
-    uint32_t delta_us_fast_loop;
-    // Counter of main loop executions.  Used for performance monitoring and failsafe processing
-    uint16_t mainLoop_count;
-
     // set if we are driving backwards
     bool in_reverse;
 
@@ -403,8 +389,6 @@ private:
     // APMrover2.cpp
     void stats_update();
     void ahrs_update();
-    void mount_update(void);
-    void update_trigger(void);
     void update_alt();
     void gcs_failsafe_check(void);
     void update_compass(void);
@@ -474,9 +458,6 @@ private:
     void cruise_learn_update();
     void cruise_learn_complete();
 
-    // events.cpp
-    void update_events(void);
-
     // failsafe.cpp
     void failsafe_trigger(uint8_t failsafe_type, bool on);
 #if ADVANCED_FAILSAFE == ENABLED
@@ -544,18 +525,14 @@ private:
     void init_barometer(bool full_calibration);
     void init_rangefinder(void);
     void init_beacon();
-    void update_beacon();
     void init_visual_odom();
     void update_visual_odom();
     void update_wheel_encoder();
-    void read_battery(void);
     void read_receiver_rssi(void);
     void compass_cal_update(void);
     void accel_cal_update(void);
     void read_rangefinders(void);
-    void button_update(void);
     void init_proximity();
-    void update_proximity();
     void update_sensor_status_flags(void);
 
     // Steering.cpp
@@ -569,8 +546,6 @@ private:
     bool set_mode(Mode &new_mode, mode_reason_t reason);
     bool mavlink_set_mode(uint8_t mode);
     void startup_INS_ground(void);
-    void update_notify();
-    void resetPerfData(void);
     void check_usb_mux(void);
     void print_mode(AP_HAL::BetterStream *port, uint8_t mode);
     void notify_mode(const Mode *new_mode);
@@ -579,15 +554,12 @@ private:
     void change_arm_state(void);
     bool arm_motors(AP_Arming::ArmingMethod method);
     bool disarm_motors(void);
-    void smart_rtl_update();
     bool is_boat() const;
 
 public:
     void mavlink_delay_cb();
     void failsafe_check();
 
-    void dataflash_periodic(void);
-    void ins_periodic();
     void update_soft_armed();
     // Motor test
     void motor_test_output();

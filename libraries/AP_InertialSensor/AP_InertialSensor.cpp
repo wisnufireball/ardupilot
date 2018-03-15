@@ -23,6 +23,7 @@
 #include "AP_InertialSensor_SITL.h"
 #include "AP_InertialSensor_qflight.h"
 #include "AP_InertialSensor_RST.h"
+#include "AP_InertialSensor_Revo.h"
 
 /* Define INS_TIMING_DEBUG to track down scheduling issues with the main loop.
  * Output is on the debug console. */
@@ -730,6 +731,8 @@ AP_InertialSensor::detect_backends(void)
     ADD_BACKEND(AP_InertialSensor_SITL::detect(*this));
 #elif HAL_INS_DEFAULT == HAL_INS_HIL
     ADD_BACKEND(AP_InertialSensor_HIL::detect(*this));
+#elif CONFIG_HAL_BOARD == HAL_BOARD_F4LIGHT
+    ADD_BACKEND(AP_InertialSensor_Revo::probe(*this, hal.spi->get_device(HAL_INS_MPU60x0_NAME), HAL_INS_DEFAULT_ROTATION));
 #elif HAL_INS_DEFAULT == HAL_INS_MPU60XX_SPI && defined(HAL_INS_DEFAULT_ROTATION)
     ADD_BACKEND(AP_InertialSensor_Invensense::probe(*this, hal.spi->get_device(HAL_INS_MPU60x0_NAME),
                                                   HAL_INS_DEFAULT_ROTATION));
@@ -772,6 +775,12 @@ AP_InertialSensor::detect_backends(void)
         ADD_BACKEND(AP_InertialSensor_Invensense::probe(*this, hal.spi->get_device(HAL_INS_MPU9250_NAME), ROTATION_YAW_270));
         break;
 
+    case AP_BoardConfig::PX4_BOARD_SP01:
+        _fast_sampling_mask.set_default(1);
+        ADD_BACKEND(AP_InertialSensor_Invensense::probe(*this, hal.spi->get_device(HAL_INS_MPU9250_EXT_NAME), ROTATION_NONE));
+        ADD_BACKEND(AP_InertialSensor_Invensense::probe(*this, hal.spi->get_device(HAL_INS_MPU9250_NAME), ROTATION_NONE));
+        break;
+        
     case AP_BoardConfig::PX4_BOARD_PIXRACER:
         // only do fast samplng on ICM-20608. The MPU9250 doesn't handle high rate well when it has a mag enabled
         _fast_sampling_mask.set_default(1);
@@ -836,6 +845,10 @@ AP_InertialSensor::detect_backends(void)
     case AP_BoardConfig::VRX_BOARD_UBRAIN52:
         ADD_BACKEND(AP_InertialSensor_Invensense::probe(*this, hal.spi->get_device(HAL_INS_MPU60x0_NAME), ROTATION_YAW_180));
         break;
+        
+    case AP_BoardConfig::PX4_BOARD_PCNC1:
+        _add_backend(AP_InertialSensor_Invensense::probe(*this, hal.spi->get_device(HAL_INS_MPU60x0_NAME), ROTATION_ROLL_180));
+        break;
 
     default:
         break;
@@ -875,6 +888,10 @@ AP_InertialSensor::detect_backends(void)
                                              hal.spi->get_device(HAL_INS_RST_A_NAME),
                                              HAL_INS_DEFAULT_G_ROTATION,
                                              HAL_INS_DEFAULT_A_ROTATION));
+#elif HAL_INS_DEFAULT == HAL_INS_ICM20789_SPI
+    ADD_BACKEND(AP_InertialSensor_Invensense::probe(*this, hal.spi->get_device("icm20789")));
+#elif HAL_INS_DEFAULT == HAL_INS_NONE
+    // no INS device
 #else
     #error Unrecognised HAL_INS_TYPE setting
 #endif
@@ -1986,3 +2003,13 @@ MAV_RESULT AP_InertialSensor::simple_accel_cal(AP_AHRS &ahrs)
 
     return result;
 }
+
+
+namespace AP {
+
+AP_InertialSensor &ins()
+{
+    return *AP_InertialSensor::get_instance();
+}
+
+};

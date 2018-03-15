@@ -498,8 +498,10 @@ public:
     // button checking
     AP_Button button;
 
+#if STATS_ENABLED == ENABLED
     // vehicle statistics
     AP_Stats stats;
+#endif
 
 #if GRIPPER_ENABLED
     AP_Gripper gripper;
@@ -512,8 +514,10 @@ public:
     // ground effect compensation enable/disable
     AP_Int8 gndeffect_comp_enabled;
 
+#if BEACON_ENABLED == ENABLED
     // beacon (non-GPS positioning) library
     AP_Beacon beacon;
+#endif
 
 #if VISUAL_ODOMETRY_ENABLED == ENABLED
     // Visual Odometry camera
@@ -549,18 +553,38 @@ public:
     // control over servo output ranges
     SRV_Channels servo_channels;
 
+#if MODE_SMARTRTL_ENABLED == ENABLED
     // Safe RTL library
     AP_SmartRTL smart_rtl;
+#endif
 
     // wheel encoder and winch
+#if WINCH_ENABLED == ENABLED
     AP_WheelEncoder wheel_encoder;
     AP_Winch winch;
+#endif
 
     // Additional pilot velocity items
     AP_Int16    pilot_speed_dn;
 
     // Land alt final stage
     AP_Int16 land_alt_low;
+
+    // temperature calibration handling
+    AP_TempCalibration temp_calibration;
+
+#if TOY_MODE_ENABLED == ENABLED
+    ToyMode toy_mode;
+#endif
+
+#if OPTFLOW == ENABLED
+    // we need a pointer to the mode for the G2 table
+    void *mode_flowhold_ptr;
+#endif
+#if MODE_FOLLOW_ENABLED == ENABLED
+    // follow
+    AP_Follow follow;
+#endif
 };
 
 extern const AP_Param::Info        var_info[];

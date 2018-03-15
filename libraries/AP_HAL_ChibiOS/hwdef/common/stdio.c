@@ -99,7 +99,12 @@ int asprintf(char **strp, const char *fmt, ...)
 
 int vprintf(const char *fmt, va_list arg)
 {
+#ifdef HAL_STDOUT_SERIAL
   return chvprintf ((BaseSequentialStream*)&HAL_STDOUT_SERIAL, fmt, arg);
+#else
+  (void)arg;
+  return strlen(fmt);
+#endif
 }
 
 int printf(const char *fmt, ...)
@@ -256,7 +261,7 @@ vsscanf (const char *buf, const char *s, va_list ap)
     else if (*s == 'l' || *s == 'L')
         lflag = 1;
     else if (*s >= '1' && *s <= '9') {
-        for (tc = s; isdigit (*s); s++);
+        for (tc = s; isdigit ((unsigned)(*s)); s++);
         strncpy (tmp, tc, s - tc);
         tmp[s - tc] = '\0';
         atob (&width, tmp, 10);

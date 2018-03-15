@@ -33,8 +33,10 @@ void Plane::init_ardupilot()
     //
     load_parameters();
 
+#if STATS_ENABLED == ENABLED
     // initialise stats module
     g2.stats.init();
+#endif
 
 #if HIL_SUPPORT
     if (g.hil_mode == 1) {
@@ -199,6 +201,11 @@ void Plane::init_ardupilot()
     if (optflow.enabled()) {
         optflow.init();
     }
+#endif
+
+// init cargo gripper
+#if GRIPPER_ENABLED == ENABLED
+    g2.gripper.init();
 #endif
 
     // disable safety if requested
@@ -598,17 +605,6 @@ void Plane::update_notify()
 {
     notify.update();
 }
-
-void Plane::resetPerfData(void) 
-{
-    perf.mainLoop_count = 0;
-    perf.G_Dt_max       = 0;
-    perf.G_Dt_min       = 0;
-    perf.num_long       = 0;
-    perf.start_ms       = millis();
-    perf.last_log_dropped = DataFlash.num_dropped();
-}
-
 
 // sets notify object flight mode information
 void Plane::notify_flight_mode(enum FlightMode mode)

@@ -57,7 +57,8 @@ public:
         RangeFinder_TYPE_MBSER  = 13,
         RangeFinder_TYPE_TRI2C  = 14,
         RangeFinder_TYPE_PLI2CV3= 15,
-        RangeFinder_TYPE_VL53L0X = 16
+        RangeFinder_TYPE_VL53L0X = 16,
+        RangeFinder_TYPE_SRF02I2C = 17
     };
 
     enum RangeFinder_Function {
@@ -167,7 +168,7 @@ private:
     AP_SerialManager &serial_manager;
     Vector3f pos_offset_zero;   // allows returning position offsets of zero for invalid requests
 
-    void detect_instance(uint8_t instance);
+    void detect_instance(uint8_t instance, uint8_t& serial_instance);
     void update_instance(uint8_t instance);  
 
     bool _add_backend(AP_RangeFinder_Backend *driver);

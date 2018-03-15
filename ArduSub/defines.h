@@ -112,7 +112,6 @@ enum RTLState {
 #define TYPE_GROUNDSTART_MSG            0x01
 #define LOG_CONTROL_TUNING_MSG          0x04
 #define LOG_NAV_TUNING_MSG              0x05
-#define LOG_PERFORMANCE_MSG             0x06
 #define LOG_OPTFLOW_MSG                 0x0C
 #define LOG_EVENT_MSG                   0x0D
 #define LOG_ERROR_MSG                   0x13
@@ -240,7 +239,7 @@ enum RTLState {
 # define FS_GCS                        DISABLED
 #endif
 #ifndef FS_GCS_TIMEOUT_MS
-# define FS_GCS_TIMEOUT_MS             2500    // gcs failsafe triggers after 5 seconds with no GCS heartbeat
+# define FS_GCS_TIMEOUT_MS             2500    // gcs failsafe triggers after this number of milliseconds with no GCS heartbeat
 #endif
 
 // missing terrain data failsafe

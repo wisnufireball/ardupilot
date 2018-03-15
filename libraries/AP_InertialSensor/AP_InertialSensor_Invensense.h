@@ -62,6 +62,7 @@ public:
         Invensense_MPU9250,
         Invensense_ICM20608,
         Invensense_ICM20602,
+        Invensense_ICM20789,
     };
     
 private:
@@ -103,8 +104,6 @@ private:
     // instance numbers of accel and gyro data
     uint8_t _gyro_instance;
     uint8_t _accel_instance;
-
-    uint16_t _error_count;
 
     float temp_sensitivity = 1.0/340; // degC/LSB
     float temp_zero = 36.53; // degC
@@ -194,3 +193,7 @@ private:
     static const uint8_t MAX_EXT_SENS_DATA = 24;
     uint8_t _ext_sens_data = 0;
 };
+
+#ifndef INS_INVENSENSE_20789_I2C_ADDR
+#define INS_INVENSENSE_20789_I2C_ADDR 0x68
+#endif

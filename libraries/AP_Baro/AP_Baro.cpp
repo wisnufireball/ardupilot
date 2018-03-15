@@ -34,7 +34,10 @@
 #include "AP_Baro_HIL.h"
 #include "AP_Baro_KellerLD.h"
 #include "AP_Baro_MS5611.h"
-#include "AP_Baro_LPS25H.h"
+#include "AP_Baro_ICM20789.h"
+#include "AP_Baro_LPS2XH.h"
+#include "AP_Baro_FBM320.h"
+#include "AP_Baro_DPS280.h"
 #if CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_QFLIGHT
 #include "AP_Baro_qflight.h"
 #endif
@@ -234,7 +237,8 @@ void AP_Baro::update_calibration()
 {
     for (uint8_t i=0; i<_num_sensors; i++) {
         if (healthy(i)) {
-            sensors[i].ground_pressure.set(get_pressure(i));
+            float corrected_pressure = get_pressure(i) + sensors[i].p_correction;
+            sensors[i].ground_pressure.set(corrected_pressure);
         }
 
         // don't notify the GCS too rapidly or we flood the link
@@ -429,6 +433,7 @@ void AP_Baro::init(void)
         break;
 
     case AP_BoardConfig::PX4_BOARD_PIXHAWK2:
+    case AP_BoardConfig::PX4_BOARD_SP01:
         ADD_BACKEND(AP_Baro_MS56XX::probe(*this,
                                           std::move(hal.spi->get_device(HAL_BARO_MS5611_SPI_EXT_NAME))));
         ADD_BACKEND(AP_Baro_MS56XX::probe(*this,
@@ -474,6 +479,12 @@ void AP_Baro::init(void)
                                           std::move(hal.spi->get_device(HAL_BARO_MS5611_NAME))));
         break;
 
+    case AP_BoardConfig::PX4_BOARD_PCNC1:
+        ADD_BACKEND(AP_Baro_ICM20789::probe(*this,
+                                            std::move(hal.i2c_mgr->get_device(1, 0x63)),
+                                            std::move(hal.spi->get_device(HAL_INS_MPU60x0_NAME))));
+        break;
+        
     default:
         break;
     }
@@ -504,6 +515,12 @@ void AP_Baro::init(void)
     ADD_BACKEND(AP_Baro_MS56XX::probe(*this,
                                       std::move(hal.i2c_mgr->get_device(HAL_BARO_MS5637_I2C_BUS, HAL_BARO_MS5637_I2C_ADDR)),
                                       AP_Baro_MS56XX::BARO_MS5637));
+#elif HAL_BARO_DEFAULT == HAL_BARO_FBM320_I2C
+    ADD_BACKEND(AP_Baro_FBM320::probe(*this,
+                                      std::move(hal.i2c_mgr->get_device(HAL_BARO_FBM320_I2C_BUS, HAL_BARO_FBM320_I2C_ADDR))));
+#elif HAL_BARO_DEFAULT == HAL_BARO_DPS280_I2C
+    ADD_BACKEND(AP_Baro_DPS280::probe(*this,
+                                      std::move(hal.i2c_mgr->get_device(HAL_BARO_DPS280_I2C_BUS, HAL_BARO_DPS280_I2C_ADDR))));
 #elif HAL_BARO_DEFAULT == HAL_BARO_QFLIGHT
     drivers[0] = new AP_Baro_QFLIGHT(*this);
     _num_drivers = 1;
@@ -511,8 +528,23 @@ void AP_Baro::init(void)
     drivers[0] = new AP_Baro_QURT(*this);
     _num_drivers = 1;
 #elif HAL_BARO_DEFAULT == HAL_BARO_LPS25H
-	ADD_BACKEND(AP_Baro_LPS25H::probe(*this,
+	ADD_BACKEND(AP_Baro_LPS2XH::probe(*this,
                                       std::move(hal.i2c_mgr->get_device(HAL_BARO_LPS25H_I2C_BUS, HAL_BARO_LPS25H_I2C_ADDR))));
+#elif HAL_BARO_DEFAULT == HAL_BARO_LPS25H_IMU_I2C
+	ADD_BACKEND(AP_Baro_LPS2XH::probe_InvensenseIMU(*this,
+                                                    std::move(hal.i2c_mgr->get_device(HAL_BARO_LPS25H_I2C_BUS, HAL_BARO_LPS25H_I2C_ADDR)),
+                                                    HAL_BARO_LPS25H_I2C_IMU_ADDR));
+#elif HAL_BARO_DEFAULT == HAL_BARO_20789_I2C_I2C
+        ADD_BACKEND(AP_Baro_ICM20789::probe(*this,
+                                            std::move(hal.i2c_mgr->get_device(HAL_BARO_20789_I2C_BUS, HAL_BARO_20789_I2C_ADDR_PRESS)),
+                                            std::move(hal.i2c_mgr->get_device(HAL_BARO_20789_I2C_BUS, HAL_BARO_20789_I2C_ADDR_ICM))));
+#elif HAL_BARO_DEFAULT == HAL_BARO_20789_I2C_SPI
+        ADD_BACKEND(AP_Baro_ICM20789::probe(*this,
+                                            std::move(hal.i2c_mgr->get_device(HAL_BARO_20789_I2C_BUS, HAL_BARO_20789_I2C_ADDR_PRESS)),
+                                            std::move(hal.spi->get_device("icm20789"))));
+#elif HAL_BARO_DEFAULT == HAL_BARO_LPS22H_SPI
+    ADD_BACKEND(AP_Baro_LPS2XH::probe(*this,
+                                      std::move(hal.spi->get_device(HAL_BARO_LPS22H_NAME))));
 #endif
 
     // can optionally have baro on I2C too
@@ -562,13 +594,13 @@ void AP_Baro::update(void)
                 sensors[i].ground_pressure = sensors[i].pressure;
             }
             float altitude = sensors[i].altitude;
+            float corrected_pressure = sensors[i].pressure + sensors[i].p_correction;
             if (sensors[i].type == BARO_TYPE_AIR) {
-                float pressure = sensors[i].pressure + sensors[i].p_correction;
-                altitude = get_altitude_difference(sensors[i].ground_pressure, pressure);
+                altitude = get_altitude_difference(sensors[i].ground_pressure, corrected_pressure);
             } else if (sensors[i].type == BARO_TYPE_WATER) {
                 //101325Pa is sea level air pressure, 9800 Pascal/ m depth in water.
                 //No temperature or depth compensation for density of water.
-                altitude = (sensors[i].ground_pressure - sensors[i].pressure) / 9800.0f / _specific_gravity;
+                altitude = (sensors[i].ground_pressure - corrected_pressure) / 9800.0f / _specific_gravity;
             }
             // sanity check altitude
             sensors[i].alt_ok = !(isnan(altitude) || isinf(altitude));
@@ -647,3 +679,11 @@ void AP_Baro::set_pressure_correction(uint8_t instance, float p_correction)
     }
 }
 
+namespace AP {
+
+AP_Baro &baro()
+{
+    return *AP_Baro::get_instance();
+}
+
+};

@@ -120,7 +120,7 @@ void Tracker::send_location(mavlink_channel_t chan)
         0,
         vel.x * 100,  // X speed cm/s (+ve North)
         vel.y * 100,  // Y speed cm/s (+ve East)
-        vel.z * -100, // Z speed cm/s (+ve up)
+        vel.z * 100,  // Z speed cm/s (+ve Down)
         ahrs.yaw_sensor);
 }
 
@@ -180,11 +180,6 @@ bool GCS_MAVLINK_Tracker::try_send_message(enum ap_message id)
         tracker.send_location(chan);
         break;
 
-    case MSG_LOCAL_POSITION:
-        CHECK_PAYLOAD_SIZE(LOCAL_POSITION_NED);
-        send_local_position(tracker.ahrs);
-        break;
-
     case MSG_NAV_CONTROLLER_OUTPUT:
         CHECK_PAYLOAD_SIZE(NAV_CONTROLLER_OUTPUT);
         tracker.send_nav_controller_output(chan);
@@ -207,17 +202,12 @@ bool GCS_MAVLINK_Tracker::try_send_message(enum ap_message id)
 
     case MSG_RAW_IMU2:
         CHECK_PAYLOAD_SIZE(SCALED_PRESSURE);
-        send_scaled_pressure(tracker.barometer);
+        send_scaled_pressure();
         break;
 
     case MSG_RAW_IMU3:
         CHECK_PAYLOAD_SIZE(SENSOR_OFFSETS);
-        send_sensor_offsets(tracker.ins, tracker.compass, tracker.barometer);
-        break;
-
-    case MSG_AHRS:
-        CHECK_PAYLOAD_SIZE(AHRS);
-        send_ahrs(tracker.ahrs);
+        send_sensor_offsets(tracker.ins, tracker.compass);
         break;
 
     case MSG_SIMSTATE:
@@ -569,7 +559,7 @@ void GCS_MAVLINK_Tracker::handleMessage(mavlink_message_t* msg)
 
                 // mavproxy/mavutil sends this when auto command is entered 
             case MAV_CMD_MISSION_START:
-                tracker.set_mode(AUTO);
+                tracker.set_mode(AUTO, MODE_REASON_GCS_COMMAND);
                 result = MAV_RESULT_ACCEPTED;
                 break;
 
@@ -816,7 +806,7 @@ bool GCS_MAVLINK_Tracker::set_mode(uint8_t mode)
     case SCAN:
     case SERVO_TEST:
     case STOP:
-        tracker.set_mode((enum ControlMode)mode);
+        tracker.set_mode((enum ControlMode)mode, MODE_REASON_GCS_COMMAND);
         return true;
     }
     return false;

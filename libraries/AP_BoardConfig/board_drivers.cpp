@@ -87,6 +87,7 @@ void AP_BoardConfig::board_setup_drivers(void)
     case PX4_BOARD_PX4V1:
     case PX4_BOARD_PIXHAWK:
     case PX4_BOARD_PIXHAWK2:
+    case PX4_BOARD_SP01:
     case PX4_BOARD_PIXRACER:
     case PX4_BOARD_PHMINI:
     case PX4_BOARD_AUAV21:
@@ -120,11 +121,16 @@ bool AP_BoardConfig::spi_check_register(const char *devname, uint8_t regnum, uin
         return false;
     }
     dev->set_read_flag(read_flag);
+    if (!dev->get_semaphore()->take(HAL_SEMAPHORE_BLOCK_FOREVER)) {
+        return false;
+    }
     uint8_t v;
     if (!dev->read_registers(regnum, &v, 1)) {
         hal.console->printf("%s: reg %02x read fail\n", devname, (unsigned)regnum);
+        dev->get_semaphore()->give();
         return false;
     }
+    dev->get_semaphore()->give();
     hal.console->printf("%s: reg %02x expected:%02x got:%02x\n", devname, (unsigned)regnum, (unsigned)value, (unsigned)v);
     return v == value;
 }

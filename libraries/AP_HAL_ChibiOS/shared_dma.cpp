@@ -58,14 +58,8 @@ void Shared_DMA::unregister()
 }
 
 // lock the DMA channels
-void Shared_DMA::lock(void)
+void Shared_DMA::lock_core(void)
 {
-    if (stream_id1 != SHARED_DMA_NONE) {
-        chBSemWait(&locks[stream_id1].semaphore);
-    }
-    if (stream_id2 != SHARED_DMA_NONE) {
-        chBSemWait(&locks[stream_id2].semaphore);
-    }
     // see if another driver has DMA allocated. If so, call their
     // deallocation function
     if (stream_id1 != SHARED_DMA_NONE &&
@@ -92,6 +86,38 @@ void Shared_DMA::lock(void)
         }
     }
     have_lock = true;
+}
+
+// lock the DMA channels, blocking method
+void Shared_DMA::lock(void)
+{
+    if (stream_id1 != SHARED_DMA_NONE) {
+        chBSemWait(&locks[stream_id1].semaphore);
+    }
+    if (stream_id2 != SHARED_DMA_NONE) {
+        chBSemWait(&locks[stream_id2].semaphore);
+    }
+    lock_core();
+}
+
+// lock the DMA channels, non-blocking
+bool Shared_DMA::lock_nonblock(void)
+{
+    if (stream_id1 != SHARED_DMA_NONE) {
+        if (chBSemWaitTimeout(&locks[stream_id1].semaphore, 1) != MSG_OK) {
+            return false;
+        }
+    }
+    if (stream_id2 != SHARED_DMA_NONE) {
+        if (chBSemWaitTimeout(&locks[stream_id2].semaphore, 1) != MSG_OK) {
+            if (stream_id1 != SHARED_DMA_NONE) {
+                chBSemSignal(&locks[stream_id1].semaphore);
+            }
+            return false;
+        }
+    }
+    lock_core();
+    return true;
 }
 
 // unlock the DMA channels
@@ -135,4 +161,15 @@ void Shared_DMA::unlock_from_IRQ(void)
     }
     have_lock = false;
     chSysUnlockFromISR();
+}
+
+/*
+  lock all channels - used on reboot to ensure no sensor DMA is in
+  progress
+ */
+void Shared_DMA::lock_all(void)
+{
+    for (uint8_t i=0; i<SHARED_DMA_MAX_STREAM_ID; i++) {
+        chBSemWait(&locks[i].semaphore);
+    }
 }
