@@ -4,16 +4,16 @@
 #include "RangeFinder_Backend.h"
 #include <AP_HAL/I2CDevice.h>
 
-#define AP_RANGE_FINDER_MAXSONARI2CXL_DEFAULT_ADDR   0x70
+#define AP_RANGE_FINDER_SRF02I2C_DEFAULT_ADDR   0x70
 
-#define AP_RANGEFINDER_MAXSONARI2CXL                4
-#define AP_RANGE_FINDER_MAXSONARI2CXL_SCALER        1.0
-#define AP_RANGE_FINDER_MAXSONARI2CXL_MIN_DISTANCE  20
-#define AP_RANGE_FINDER_MAXSONARI2CXL_MAX_DISTANCE  765
+#define AP_RANGEFINDER_SRF02I2C                4
+#define AP_RANGE_FINDER_SRF02I2C_SCALER        1.0
+#define AP_RANGE_FINDER_SRF02I2C_MIN_DISTANCE  25
+#define AP_RANGE_FINDER_SRF02I2C_MAX_DISTANCE  600
 
-#define AP_RANGE_FINDER_MAXSONARI2CXL_COMMAND_TAKE_RANGE_READING 0x51
+#define AP_RANGE_FINDER_SRF02I2C_COMMAND_TAKE_RANGE_READING 0x51
 
-class AP_RangeFinder_MaxsonarI2CXL : public AP_RangeFinder_Backend
+class AP_RangeFinder_SRF02I2C : public AP_RangeFinder_Backend
 {
 public:
     // static detection function
@@ -31,8 +31,8 @@ protected:
 
 private:
     // constructor
-    AP_RangeFinder_MaxsonarI2CXL(RangeFinder::RangeFinder_State &_state,
-                                 AP_HAL::OwnPtr<AP_HAL::I2CDevice> dev);
+    AP_RangeFinder_SRF02I2C(RangeFinder::RangeFinder_State &_state,
+                            AP_HAL::OwnPtr<AP_HAL::I2CDevice> dev);
 
     bool _init(void);
     void _timer(void);
