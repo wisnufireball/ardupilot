@@ -48,9 +48,8 @@ AP_RangeFinder_SRF02I2C::AP_RangeFinder_SRF02I2C(RangeFinder::RangeFinder_State 
 AP_RangeFinder_Backend *AP_RangeFinder_SRF02I2C::detect(RangeFinder::RangeFinder_State &_state,
                                                         AP_HAL::OwnPtr<AP_HAL::I2CDevice> dev)
 {
-    AP_RangeFinder_SRF02I2C *sensor
-        = new AP_RangeFinder_SRF02I2C(_state, std::move(dev));
-    if (!sensor) {
+    AP_RangeFinder_SRF02I2C *sensor = new AP_RangeFinder_SRF02I2C(_state, std::move(dev));
+    if (!sensor) { 
         return nullptr;
     }
 
@@ -71,6 +70,8 @@ bool AP_RangeFinder_SRF02I2C::_init(void)
         return false;
     }
     
+    //lots of retries for init
+    _dev->set_retries(10);
 
     if (!start_reading()) {
         _dev->get_semaphore()->give();
@@ -86,6 +87,9 @@ bool AP_RangeFinder_SRF02I2C::_init(void)
         return false;
     }
 
+    //low retries for runtime
+    _dev->set_retries(1);
+
     _dev->get_semaphore()->give();
     
     _dev->register_periodic_callback(
@@ -99,47 +103,39 @@ bool AP_RangeFinder_SRF02I2C::_init(void)
 // start_reading() - ask sensor to make a range reading
 bool AP_RangeFinder_SRF02I2C::start_reading()
 {
-    uint8_t cmd[2];
-    cmd[0] = 0;
-    cmd[1] = AP_RANGE_FINDER_SRF02I2C_COMMAND_TAKE_RANGE_READING;
-
-    //send command to take reading
-    return _dev->transfer(cmd, sizeof(cmd), nullptr, 0);
+    return _dev->write_register(AP_RANGE_FINDER_SRF02I2C_REG_W_COMMAND, 
+                                AP_RANGE_FINDER_SRF02I2C_COMMAND_TAKE_RANGE_READING_CM);
 }
 
 // read - return last value measured by sensor
 bool AP_RangeFinder_SRF02I2C::get_reading(uint16_t &reading_cm)
 {
     be16_t val;
-    uint8_t cmd = 0x02;
+    uint8_t cmd = AP_RANGE_FINDER_SRF02I2C_REG_R_RANGE_HIGH_BYTE;
 
-    //sets register pointer to echo #1 register (0x02)
-    _dev->transfer(&cmd, sizeof(cmd), nullptr, 0);
-
-    // take range reading and read back results
-    bool ret = _dev->transfer(nullptr, 0, (uint8_t *) &val, sizeof(val));
+    bool ret = _dev->transfer(&cmd, sizeof(cmd), (uint8_t *) &val, sizeof(val));
 
     if (ret) {
         // combine results into distance
         reading_cm = be16toh(val);
-
-        // trigger a new reading
-        start_reading();
     }
-
+    
+    // trigger a new reading
+    start_reading();
+    
     return ret;
 }
 
 /*
-  timer called at 20Hz
+  timer called at 14Hz
 */
 void AP_RangeFinder_SRF02I2C::_timer(void)
 {
     uint16_t d;
     if (get_reading(d)) {
         if (_sem->take(HAL_SEMAPHORE_BLOCK_FOREVER)) {
-            distance = d;
-            new_distance = true;
+            _distance = d;
+            _new_distance = true;
             _sem->give();
         }
     }
@@ -152,9 +148,9 @@ void AP_RangeFinder_SRF02I2C::_timer(void)
 void AP_RangeFinder_SRF02I2C::update(void)
 {
     if (_sem->take_nonblocking()) {
-        if (new_distance) {
-            state.distance_cm = distance;
-            new_distance = false;
+        if (_new_distance) {
+            state.distance_cm =_distance;
+            _new_distance = false;
             update_status();
         } else {
             set_status(RangeFinder::RangeFinder_NoData);
